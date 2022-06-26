@@ -10,18 +10,18 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Observer
 import com.bumptech.glide.Glide
+import com.example.recyclerviewexercise.App
 import com.example.recyclerviewexercise.R
 import com.example.recyclerviewexercise.databinding.FragmentUserDetailsBinding
+import com.example.recyclerviewexercise.tasks.*
 
 class UserDetailsFragment: Fragment() {
     private lateinit var binding: FragmentUserDetailsBinding
-    private val viewModel: UserDetailsViewModel by viewModels { factory() }
-
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        viewModel.loadUser(requireArguments().getLong(ARG_USER_ID))
+    private val viewModel: UserDetailsViewModel by viewModelCreator {
+            UserDetailsViewModel(it.usersService, requireArguments().getLong(ARG_USER_ID))
     }
+
+
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -30,25 +30,48 @@ class UserDetailsFragment: Fragment() {
     ): View? {
         binding = FragmentUserDetailsBinding.inflate(layoutInflater, container, false)
 
-        viewModel.userDetails.observe(viewLifecycleOwner, Observer{
-            binding.userNameTextView.text=it.user.name
-            if (it.user.photo.isNotBlank()){
-                Glide.with(this)
-                    .load(it.user.photo)
-                    .circleCrop()
-                    .into(binding.photoImageView)
-            } else {
-                Glide.with(this)
-                    .load(R.drawable.ic_user_avatar)
-                    .into(binding.photoImageView)
+        viewModel.actionShowToast.observe(viewLifecycleOwner, Observer {
+            it.getValue()?.let{messageRes-> navigator().toast(messageRes) }
+        })
+        viewModel.actionGoBack.observe(viewLifecycleOwner, Observer {
+            it.getValue()?.let{navigator().goBack()}
+            })
+        viewModel.state.observe(viewLifecycleOwner, Observer {
+            binding.contentContainer.visibility = if (it.showContent){
+                View.VISIBLE
             }
-            binding.userDetailsTextView.text=it.details
+            else{
+                View.GONE
+            }
+        })
+
+        viewModel.state.observe(viewLifecycleOwner, Observer {
+            binding.contentContainer.visibility = if (it.showContent) {
+                val userDetails = (it.userDetailsResult as SuccessResult).data
+                binding.userNameTextView.text = userDetails.user.name
+                if (userDetails.user.photo.isNotBlank()) {
+                    Glide.with(this)
+                        .load(userDetails.user.photo)
+                        .circleCrop()
+                        .into(binding.photoImageView)
+                } else {
+                    Glide.with(this)
+                        .load(R.drawable.ic_user_avatar)
+                        .into(binding.photoImageView)
+                }
+                binding.userDetailsTextView.text = userDetails.details
+
+                View.VISIBLE
+            } else {
+                View.GONE
+            }
+
+            binding.progressBar.visibility = if (it.showProgress) View.VISIBLE else View.GONE
+            binding.deleteButton.isEnabled = it.enableDeleteButton
         })
 
         binding.deleteButton.setOnClickListener{
             viewModel.deleteUser()
-            navigator().toast(R.string.user_has_been_deleted)
-            navigator().goBack()
         }
 
         return binding.root

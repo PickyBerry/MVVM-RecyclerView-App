@@ -1,8 +1,11 @@
 package com.example.recyclerviewexercise.model
 
 import com.example.recyclerviewexercise.UserNotFoundException
+import com.example.recyclerviewexercise.tasks.SimpleTask
+import com.example.recyclerviewexercise.tasks.Task
 import com.github.javafaker.Faker
 import java.util.*
+import java.util.concurrent.Callable
 import kotlin.contracts.ReturnsNotNull
 
 typealias UsersListener=(users:List<User>)->Unit
@@ -11,9 +14,10 @@ class UsersService {
 
     private var users = mutableListOf<User>()
     private val listeners= mutableSetOf<UsersListener>()
+    private var loaded=false
 
-
-    init {
+    fun loadUsers():Task<Unit> = SimpleTask<Unit>(Callable{
+        Thread.sleep(2000)
         val faker = Faker.instance()
         IMAGES.shuffle()
         users = (1..100).map {
@@ -24,50 +28,53 @@ class UsersService {
                 photo = IMAGES[it % IMAGES.size]
             )
         }.toMutableList()
-    }
+        loaded=true
+        notifyChanges()
+    })
 
-    fun getUsers():List<User>{
-        return users
-    }
-
-    fun getById(id: Long):UserDetails{
+    fun getById(id: Long): Task<UserDetails> = SimpleTask<UserDetails>(Callable{
+        Thread.sleep(2000)
         val user=users.firstOrNull{it.id==id} ?: throw UserNotFoundException()
-        return UserDetails(
+        return@Callable UserDetails(
             user = user,
             details = Faker.instance().lorem().paragraphs(3).joinToString("\n\n")
         )
 
-    }
+    })
 
-    fun deleteUser(user: User){
-        val indexToDelete: Int=users.indexOfFirst { it.id==user.id }
-        if (indexToDelete!=-1) {
+    fun deleteUser(user: User): Task<Unit> = SimpleTask<Unit>(Callable {
+        Thread.sleep(2000)
+        val indexToDelete = users.indexOfFirst { it.id == user.id }
+        if (indexToDelete != -1) {
             users.removeAt(indexToDelete)
             notifyChanges()
         }
-    }
+    })
 
-
-    fun moveUser(user: User, moveBy: Int){
-        val oldIndex: Int=users.indexOfFirst { it.id==user.id }
-        if (oldIndex==-1) return
-        val newIndex=oldIndex+moveBy
-        if (newIndex<0 || newIndex>=users.size) return
-        Collections.swap(users,oldIndex,newIndex)
+    fun moveUser(user: User, moveBy: Int): Task<Unit> = SimpleTask<Unit>(Callable {
+        Thread.sleep(2000)
+        val oldIndex = users.indexOfFirst { it.id == user.id }
+        if (oldIndex == -1) return@Callable
+        val newIndex = oldIndex + moveBy
+        if (newIndex < 0 || newIndex >= users.size) return@Callable
+        Collections.swap(users, oldIndex, newIndex)
         notifyChanges()
-    }
+    })
 
-    fun addListener(listener: UsersListener){
+    fun addListener(listener: UsersListener) {
         listeners.add(listener)
-        listener.invoke(users)
+        if (loaded) {
+            listener.invoke(users)
+        }
     }
 
-    fun removeListener(listener: UsersListener){
+    fun removeListener(listener: UsersListener) {
         listeners.remove(listener)
     }
 
-    private fun notifyChanges(){
-        listeners.forEach{it.invoke(users)}
+    private fun notifyChanges() {
+        if (!loaded) return
+        listeners.forEach { it.invoke(users) }
     }
 
     companion object {

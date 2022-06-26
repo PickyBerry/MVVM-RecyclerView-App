@@ -9,6 +9,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.example.recyclerviewexercise.databinding.ItemUserBinding
 import com.example.recyclerviewexercise.model.User
+import com.example.recyclerviewexercise.screens.UserListItem
 
 
 interface UserActionListener {
@@ -26,7 +27,7 @@ class UsersAdapter(
     private val actionListener: UserActionListener
 ) : RecyclerView.Adapter<UsersAdapter.UsersViewHolder>(), View.OnClickListener {
 
-    var users: List<User> = emptyList()
+    var users: List<UserListItem> = emptyList()
         set(newValue) {
             field = newValue
             notifyDataSetChanged()
@@ -40,17 +41,29 @@ class UsersAdapter(
         val inflater = LayoutInflater.from(parent.context)
         val binding = ItemUserBinding.inflate(inflater, parent, false)
 
-        binding.root.setOnClickListener(this)
+
         binding.moreImageViewButton.setOnClickListener(this)
 
         return UsersViewHolder(binding)
     }
 
     override fun onBindViewHolder(holder: UsersAdapter.UsersViewHolder, position: Int) {
-        val user = users[position]
+        val userListItem = users[position]
+        val user=userListItem.user
         with(holder.binding) {
             holder.itemView.tag=user
             moreImageViewButton.tag=user
+
+            if (userListItem.isInProgress){
+                moreImageViewButton.visibility=View.INVISIBLE
+                itemProgressBar.visibility=View.VISIBLE
+                holder.binding.root.setOnClickListener(null)
+            } else{
+                moreImageViewButton.visibility=View.VISIBLE
+                itemProgressBar.visibility=View.GONE
+                holder.binding.root.setOnClickListener(this@UsersAdapter)
+            }
+
             userNameTextView.text = user.name
             userCompanyTextView.text = user.company
             if (user.photo.isNotBlank()) {
@@ -86,7 +99,7 @@ class UsersAdapter(
         val popupMenu=PopupMenu(view.context, view)
         val context=view.context
         val user=view.tag as User
-        val position=users.indexOfFirst{it.id==user.id}
+        val position=users.indexOfFirst{it.user.id==user.id}
 
         popupMenu.menu.add(0,ID_MOVE_UP, Menu.NONE,context.getString(R.string.move_up)).apply{
             isEnabled = position>0
